@@ -1,0 +1,68 @@
+---
+title: "world_map_density"
+author: "Jefferson Amah"
+date: "2025-07-28"
+output: html_document
+---
+
+
+## Introduction
+
+This document shows the global population density using R.  
+We use geospatial and demographic datasets, primarily from the `rnaturalearth` package.  
+The population density (people per km²) is calculated and displayed with color-coded shading.
+
+### Load Required Packages
+
+```{r setup, message=FALSE, warning=FALSE}
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(units)   # for area units
+```
+
+### Load and Prepare Data
+
+Firstly, we will load the world map with country data
+
+Then calculate the area and convert to km²; we then calculate population density from population estimate and calculated area.
+
+Next, we filter out all null population e.g in Antartica.
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+world <- world %>%
+     mutate(
+         area_km2 = st_area(geometry),                 # get area in m²
+         area_km2 = set_units(area_km2, km^2),         # convert to km²
+         area_km2 = as.numeric(area_km2),              # drop units to numeric
+        pop_density = pop_est / area_km2              # compute density
+     )
+
+world_plot <- world %>%
+     filter(!is.na(pop_density) & pop_density > 0)
+ 
+```
+
+### Ploting world map
+
+```{r}
+ggplot(data = world_plot) +
+     geom_sf(aes(fill = pop_density)) +
+     scale_fill_viridis_c(trans = "log", option = "C", name = "People per km²") +
+     theme_minimal() +
+     labs(title = "World Population Density",
+          subtitle = "Designed by Geography Class @ Everest School, Ibadan",
+          caption = "Source: Natural Earth via rnaturalearth")
+```
+
+### Save map to a PNG file
+
+```{r}
+ggsave("world_population_density.png", width = 10, height = 6, dpi = 300)
+```
+
+### sessionInfo
