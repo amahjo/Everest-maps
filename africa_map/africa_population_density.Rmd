@@ -1,0 +1,82 @@
+---
+title: "Africa Population Density Map"
+author: "Jefferson Amah"
+date: "2025-07-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sf)
+library(ggplot2)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(dplyr)
+library(units)
+```
+
+## Introduction
+
+This project visualizes the population density of African countries using geographic data from the rnaturalearth package.
+
+Load Africa Data
+
+```{r}
+africa <- ne_countries(continent = "Africa", returnclass = "sf")
+
+# Fix invalid geometries
+africa <- st_make_valid(africa)
+
+# Project to an equal-area projection (important for correct area in km²)
+africa <- st_transform(africa, crs = "+proj=cea +lon_0=25")
+
+# Estimate area in square kilometers
+africa <- africa %>%
+  mutate(
+         area_km2 = st_area(geometry),            # get area in m²
+         area_km2 = set_units(area_km2, km^2),    # convert to km²
+         area_km2 = as.numeric(area_km2),         # drop units to numeric
+        pop_density = pop_est / area_km2          # compute density
+     )
+```
+
+### Include political structure
+
+``` {r}
+# Create centroids (geometric centers) for each country polygon
+africa_centroids <- africa %>%
+  st_centroid(of_largest_polygon = TRUE) %>%
+  st_transform(st_crs(africa)) 
+```
+
+### PLotting Africa maps
+
+```{r}
+ggplot(data = africa) +
+     geom_sf(aes(fill = pop_density)) +
+     scale_fill_viridis_c(trans = "log", option = "D", name = "Person(s) per km²", breaks = c(0, 1, 10, 40, 150, 500),
+  labels = c("0","1", "10", "100", "1K", "10K")) +
+     geom_sf_text(data = africa_centroids, aes(label = name), size = 2.5, color = "black") +
+     labs(title = "Population Density of Africa",
+          subtitle = "Designed by Geography Class @ Everest School, Ibadan",
+          caption = "Source: Natural Earth via rnaturalearth") +
+     coord_sf(expand = FALSE) + 
+  theme_minimal() +           
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5),
+    axis.text = element_text(size = 8),     
+    axis.title = element_blank(),         
+    plot.caption = element_text(size = 8)
+  )
+```
+
+### Save map to a PNG file
+
+```{r}
+ggsave("africa_population_density.png", width = 10, height = 6, dpi = 300)
+```
+
+### Conclusion
+
+This map helps us visualize how population is distributed across Africa. Higher population densities are seen in countries such as Nigeria and Rwanda.
